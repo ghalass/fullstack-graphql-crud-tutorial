@@ -1,62 +1,49 @@
+// server/server.js
+
+import dotenv from 'dotenv';
 import { ApolloServer } from "@apollo/server";
 import { startStandaloneServer } from "@apollo/server/standalone";
+import { typeDefs } from "./schema/index.js";
+import { resolvers } from "./resolvers/index.js";
+import { isAuth } from './middleware/Auth.js';
 
-const users = [
-  { id: "1", name: "John Doe", age: 30, isMarried: true },
-  { id: "2", name: "Jane Smith", age: 25, isMarried: false },
-  { id: "3", name: "Alice Johnson", age: 28, isMarried: false },
-];
+import { makeExecutableSchema } from "@graphql-tools/schema";
+import { applyMiddleware } from "graphql-middleware";
+import { permissions } from "./shield/permissions.js";
 
-const typeDefs = `
-    type Query {
-      getUsers: [User]
-      getUserById(id: ID!): User
-    }
+import prisma from "./prismaClient.js";
+dotenv.config();
 
-    type Mutation {
-      createUser(name: String!, age: Int!, isMarried: Boolean!): User
-    }
+// Création du schema avec Shield
+const schema = makeExecutableSchema({ typeDefs, resolvers });
+const schemaWithMiddleware = applyMiddleware(schema, permissions);
 
-    type User {
-      id: ID
-      name: String
-      age: Int
-      isMarried: Boolean
-    }
-`;
+const PORT = process.env.PORT || 5000;
 
-const resolvers = {
-  Query: {
-    getUsers: () => {
-      return users;
-    },
-    getUserById: (parent, args) => {
-      const id = args.id;
-      return users.find((user) => user.id === id);
-    },
-  },
-  Mutation: {
-    createUser: (parent, args) => {
-      const { name, age, isMarried } = args;
-      const newUser = {
-        id: (users.length + 1).toString(),
-        name,
-        age,
-        isMarried,
+async function bootstrap() {
+  const server = new ApolloServer({
+    schema: schemaWithMiddleware,
+  });
+
+  const { url } = await startStandaloneServer(server, {
+    context: async ({ req }) => {
+      let authUser = null;
+      try {
+        authUser = isAuth(req);
+      } catch (err) {
+        authUser = null;
+      }
+      return {
+        prisma,
+        authUser,
       };
-      console.log(newUser);
-      users.push(newUser);
     },
-  },
-};
+    listen: { port: PORT },
+  });
 
-const server = new ApolloServer({ typeDefs, resolvers });
+  console.log(`🚀 Server ready at ${url}`);
+}
 
-const { url } = await startStandaloneServer(server, {
-  listen: { port: 4000 },
+bootstrap().catch((err) => {
+  console.error("Erreur serveur:", err);
 });
-
-console.log(`Server Running at: ${url}`);
-
-///// Query, Mutation
-//// typeDefs, resolvers

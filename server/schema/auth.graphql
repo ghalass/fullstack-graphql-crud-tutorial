@@ -1,0 +1,45 @@
+type User {
+  id: ID!
+  email: String!
+  password: String!
+  firstName: String!
+  lastName: String!
+  phone: String
+  address: String
+  userType: String!
+}
+
+input UserCreateInput {
+  email: String!
+  password: String!
+  firstName: String!
+  lastName: String!
+  phone: String
+  address: String
+  userType: String
+}
+
+type UserWithOutPassword {
+  id: ID!
+  email: String!
+  firstName: String!
+  lastName: String!
+  phone: String
+  address: String
+  userType: String
+}
+
+type AuthData {
+  userId: ID!
+  token: String!
+}
+
+type Query {
+  getUsers: [UserWithOutPassword]
+  getUserById(id: ID!): UserWithOutPassword
+}
+
+type Mutation {
+  createUser(inputs: UserCreateInput): UserWithOutPassword
+  login(email: String!, password: String!): AuthData!
+}
